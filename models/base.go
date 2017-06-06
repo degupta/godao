@@ -16,9 +16,14 @@ import (
 
 type Column struct {
 	name       string
+	fieldName  string
 	partOfPKey bool
 	auto       bool
 	modelInfo  *ModelInfo
+}
+
+func (column *Column) GetFieldName() string {
+	return column.fieldName
 }
 
 func (column *Column) nameForView() string {
@@ -119,7 +124,7 @@ func (modelInfo *ModelInfo) mergeColumns(other *ModelInfo) {
 	modelInfo.notPKey = append(modelInfo.notPKey, other.notPKey...)
 }
 
-func (modelInfo *ModelInfo) setColumns() error {
+func (modelInfo *ModelInfo) setColumns(generateStatements bool) error {
 	n := modelInfo.reflectedType.NumField()
 
 	modelInfo.Columns = make(Columns, 0)
@@ -131,7 +136,7 @@ func (modelInfo *ModelInfo) setColumns() error {
 
 		if field.Tag.Get("embedded") == "true" {
 			// TODO : Check for non pointer case
-			embeddedModelInfo, err := GetModelInfo(reflect.New(field.Type.Elem()).Elem().Interface(), modelInfo.TableName)
+			embeddedModelInfo, err := GetModelInfo(reflect.New(field.Type.Elem()).Elem().Interface(), modelInfo.TableName, generateStatements)
 			if err != nil {
 				return err
 			}
@@ -144,7 +149,8 @@ func (modelInfo *ModelInfo) setColumns() error {
 		}
 		partOfPKey := field.Tag.Get("id") == "true"
 		auto := field.Tag.Get("auto") == "true"
-		column := &Column{name: name, modelInfo: modelInfo, partOfPKey: partOfPKey, auto: auto}
+		fieldName := field.Name
+		column := &Column{name: name, fieldName: fieldName, modelInfo: modelInfo, partOfPKey: partOfPKey, auto: auto}
 
 		if partOfPKey {
 			modelInfo.pKey = append(modelInfo.pKey, column)
@@ -452,18 +458,20 @@ func createStatements(modelInfo *ModelInfo) error {
 
 // PUBLIC FUNCTIONS
 
-func GetModelInfo(m interface{}, tableName string) (*ModelInfo, error) {
+func GetModelInfo(m interface{}, tableName string, generateStatements bool) (*ModelInfo, error) {
 
 	modelInfo := &ModelInfo{TableName: tableName, reflectedType: reflect.TypeOf(m)}
 
-	err := modelInfo.setColumns()
+	err := modelInfo.setColumns(generateStatements)
 	if err != nil {
 		return nil, err
 	}
 
-	err = createStatements(modelInfo)
-	if err != nil {
-		return nil, err
+	if generateStatements {
+		err = createStatements(modelInfo)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return modelInfo, nil

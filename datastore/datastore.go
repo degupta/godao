@@ -1,9 +1,7 @@
 package datastore
 
 import (
-	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 )
 
