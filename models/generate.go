@@ -3,6 +3,7 @@ package models
 import (
 	"bufio"
 	"fmt"
+	"github.com/degupta/godao/utils"
 	"html/template"
 	"os"
 	"os/exec"
@@ -35,10 +36,10 @@ func GenerateFile(m interface{}, tableName, outDir string) (ret error) {
 
 	modelName := modelInfo.Name()
 	lowerName := strings.ToLower(string(modelName[0])) + string(modelName[1:])
+	fileName := utils.ToSnake(lowerName)
 	pkgName := string(outDir[strings.LastIndex(outDir, "/")+1:])
-	fmt.Println("Using package:", pkgName)
-
-	filePath := outDir + "/" + lowerName + "_dao.go"
+	filePath := outDir + "/" + fileName + "_dao.go"
+	fmt.Println("Using package:", pkgName, "File Path: ", filePath)
 
 	err = os.Remove(filePath)
 	if !os.IsNotExist(err) {
@@ -65,7 +66,7 @@ func GenerateFile(m interface{}, tableName, outDir string) (ret error) {
 
 	w.Flush()
 
-	cmd := exec.Command("go", "fmt", "./" + pkgName + "/...")
+	cmd := exec.Command("go", "fmt", "./"+pkgName+"/...")
 	b, err := cmd.CombinedOutput()
 	if err != nil {
 		fmt.Println(fmt.Sprint(err) + ": " + string(b))
@@ -127,7 +128,7 @@ func ({{.LowerModelName}} {{.ModelName}}) getDest() []interface{} {
 
 func Get{{.ModelName}}ById(tx datastore.TxWrapper, id string) (*{{.ModelName}}, error) {
 	{{.LowerModelName}} := New{{.ModelName}}()
-	err := models.GetById(tx, {{.LowerModelName}}ModelInfo, {{.LowerModelName}}.getId(), {{.LowerModelName}}.getDest()...)
+	err := models.GetByIdTx(tx, {{.LowerModelName}}ModelInfo, {{.LowerModelName}}.getId(), {{.LowerModelName}}.getDest()...)
 	if err != nil {
 		return nil, err
 	} else {
