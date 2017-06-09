@@ -4,10 +4,10 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/degupta/godao/utils"
-	"html/template"
 	"os"
 	"os/exec"
 	"strings"
+	"text/template"
 )
 
 type parseContext struct {
@@ -17,6 +17,18 @@ type parseContext struct {
 	IdCols         Columns
 	AllCols        Columns
 	TableName      string
+}
+
+func (pc *parseContext) GetIdColType() string {
+	return pc.IdCols[0].GetFielType()
+}
+
+func (pc *parseContext) GetIdZeroValue() string {
+	if pc.GetIdColType() == "string" {
+		return `""`
+	} else {
+		return "0"
+	}
 }
 
 func GenerateFile(m interface{}, tableName, outDir string) (ret error) {
@@ -126,8 +138,9 @@ func ({{.LowerModelName}} {{.ModelName}}) getDest() []interface{} {
 }
 
 
-func Get{{.ModelName}}ById(tx datastore.TxWrapper, id string) (*{{.ModelName}}, error) {
+func Get{{.ModelName}}ById(tx datastore.TxWrapper, id {{ .GetIdColType }}) (*{{.ModelName}}, error) {
 	{{.LowerModelName}} := New{{.ModelName}}()
+	{{.LowerModelName}}.Id = id
 	err := models.GetByIdTx(tx, {{.LowerModelName}}ModelInfo, {{.LowerModelName}}.getId(), {{.LowerModelName}}.getDest()...)
 	if err != nil {
 		return nil, err
@@ -141,7 +154,7 @@ func ({{.LowerModelName}} *{{.ModelName}}) UpdateTx(tx datastore.TxWrapper) erro
 }
 
 func ({{.LowerModelName}} *{{.ModelName}}) SaveTx(tx datastore.TxWrapper) error {
-	if {{.LowerModelName}}.Id == "" {
+	if {{.LowerModelName}}.Id == {{ .GetIdZeroValue }} {
 		return {{.LowerModelName}}.CreateTx(tx)
 	} else {
 		return {{.LowerModelName}}.UpdateTx(tx)

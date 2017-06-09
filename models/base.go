@@ -17,6 +17,7 @@ import (
 type Column struct {
 	name       string
 	fieldName  string
+	fieldType  string
 	partOfPKey bool
 	auto       bool
 	modelInfo  *ModelInfo
@@ -24,6 +25,10 @@ type Column struct {
 
 func (column *Column) GetFieldName() string {
 	return column.fieldName
+}
+
+func (column *Column) GetFielType() string {
+	return column.fieldType
 }
 
 func (column *Column) nameForView() string {
@@ -150,7 +155,8 @@ func (modelInfo *ModelInfo) setColumns(generateStatements bool) error {
 		partOfPKey := field.Tag.Get("id") == "true"
 		auto := field.Tag.Get("auto") == "true"
 		fieldName := field.Name
-		column := &Column{name: name, fieldName: fieldName, modelInfo: modelInfo, partOfPKey: partOfPKey, auto: auto}
+		fieldType := field.Type.Name()
+		column := &Column{name: name, fieldName: fieldName, fieldType: fieldType, modelInfo: modelInfo, partOfPKey: partOfPKey, auto: auto}
 
 		if partOfPKey {
 			modelInfo.pKey = append(modelInfo.pKey, column)

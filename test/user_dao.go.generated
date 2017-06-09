@@ -43,6 +43,7 @@ func (user User) getDest() []interface{} {
 
 func GetUserById(tx datastore.TxWrapper, id string) (*User, error) {
 	user := NewUser()
+	user.Id = id
 	err := models.GetByIdTx(tx, userModelInfo, user.getId(), user.getDest()...)
 	if err != nil {
 		return nil, err
