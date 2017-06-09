@@ -12,6 +12,15 @@ import (
 	"github.com/degupta/godao/datastore"
 )
 
+type DatabaseType int
+
+const (
+	DATABASE_TYPE_MYSQL DatabaseType = iota
+	DATABASE_TYPE_PSQL               = iota + 1
+)
+
+var databaseType = DATABASE_TYPE_MYSQL
+
 /******* Column ******/
 
 type Column struct {
@@ -181,7 +190,11 @@ func (modelInfo *ModelInfo) setColumns(generateStatements bool) error {
 func (modelInfo *ModelInfo) pKeyWhereClause(valueOffset int) string {
 	pKeyWhereConditions := []string{}
 	for i, pCol := range modelInfo.pKey {
-		pKeyWhereConditions = append(pKeyWhereConditions, fmt.Sprintf("%s = $%d", pCol.name, i+valueOffset+1))
+		if databaseType == DATABASE_TYPE_MYSQL {
+			pKeyWhereConditions = append(pKeyWhereConditions, fmt.Sprintf("%s = ?", pCol.name))
+		} else {
+			pKeyWhereConditions = append(pKeyWhereConditions, fmt.Sprintf("%s = $%d", pCol.name, i+valueOffset+1))
+		}
 	}
 	return strings.Join(pKeyWhereConditions, " AND ")
 }
@@ -211,7 +224,11 @@ func writeToBuffer(buf *bytes.Buffer, strings ...string) {
 func valuesCsv(start, end int) string {
 	numbers := make([]string, 0)
 	for i := start; i <= end; i++ {
-		numbers = append(numbers, fmt.Sprintf("$%d", i))
+		if databaseType == DATABASE_TYPE_MYSQL {
+			numbers = append(numbers, "?")
+		} else {
+			numbers = append(numbers, fmt.Sprintf("$%d", i))
+		}
 	}
 	return strings.Join(numbers, ", ")
 }
@@ -382,7 +399,11 @@ func PrepareUpdateStatementFor(modelInfo *ModelInfo, returningClause string) (*s
 func PrepareUpdateFor(modelInfo *ModelInfo, columns []string) (*sql.Stmt, error) {
 	values := make([]string, len(columns))
 	for i, _ := range columns {
-		values = append(values, fmt.Sprintf("$%d", i+1))
+		if databaseType == DATABASE_TYPE_MYSQL {
+			values = append(values, "?")
+		} else {
+			values = append(values, fmt.Sprintf("$%d", i+1))
+		}
 	}
 	columnsCsv := strings.Join(columns, ", ")
 	valuesCsv := strings.Join(values, ", ")
@@ -406,14 +427,18 @@ func (modelInfo *ModelInfo) PrepareGetLast() (*sql.Stmt, error) {
 // FIXME: use new api
 func PrepareBelongsToStatementsFor(modelInfo *ModelInfo, foreignKey string) (*Statements, error) {
 	stmts := &Statements{}
-	stmt, err := PrepareSelectStatementFor(modelInfo, fmt.Sprintf("%s = $1", foreignKey), modelInfo.createdAt.name)
+	placeHolder := "$1"
+	if databaseType == DATABASE_TYPE_MYSQL {
+		placeHolder = "?"
+	}
+	stmt, err := PrepareSelectStatementFor(modelInfo, fmt.Sprintf("%s = %s", foreignKey, placeHolder), modelInfo.createdAt.name)
 	if err != nil {
 		return nil, err
 	} else {
 		stmts.SelectStmt = stmt
 	}
 
-	stmt, err = PrepareDeleteStatementFor(modelInfo, fmt.Sprintf("%s = $1", foreignKey))
+	stmt, err = PrepareDeleteStatementFor(modelInfo, fmt.Sprintf("%s = %s", foreignKey, placeHolder))
 	if err != nil {
 		return nil, err
 	} else {
